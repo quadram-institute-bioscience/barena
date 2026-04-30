@@ -18,6 +18,7 @@ const
 
 let barena =
   if fileExists("./barena"): "./barena"
+  elif fileExists("./bin/barena"): "./bin/barena"
   elif fileExists("./src/barena"): "./src/barena"
   else: ""
 
