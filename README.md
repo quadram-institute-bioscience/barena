@@ -1,6 +1,6 @@
 # Barena
 
-![logo](assets/barena.png)
+![logo](assets/barena-kraken.svg)
 
 **Barena** is a tool to filter FASTQ reads by taxon using Kraken2 classification output.
 
