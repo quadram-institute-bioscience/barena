@@ -1,0 +1,54 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+            artifact: barena-linux-x86_64
+          - os: macos-latest
+            target: macos-aarch64
+            artifact: barena-macos-aarch64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Nim
+        uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: stable
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache nimble packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+          restore-keys: ${{ runner.os }}-nimble-
+
+      - name: Install zlib (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y zlib1g-dev
+
+      - name: Install dependencies
+        run: nimble install -d -y
+
+      - name: Build release binary
+        run: nimble build -d:release
+
+      - name: Prepare artifact
+        run: cp bin/barena "${{ matrix.artifact }}"
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ matrix.artifact }}" --clobber

@@ -9,6 +9,8 @@ import argparse
 import readfx
 import taxonomy, krakenio, outfiles
 
+const NimblePkgVersion {.strdefine.} = "0.0.0"
+
 # ---------------------------------------------------------------------------
 # Output path resolution
 # ---------------------------------------------------------------------------
@@ -109,6 +111,9 @@ when isMainModule:
     flag("--verbose",
          help="Print taxonomy stats and progress every 20,000 reads to stderr")
 
+  if "--version" in commandLineParams():
+    echo "barena v", NimblePkgVersion
+    quit(0)
   try:
     let opts = p.parse()
     let paired = opts.r2.len > 0
