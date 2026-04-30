@@ -1,6 +1,0 @@
-command,mean,stddev,median,user,system,min,max
-./barena_linux -1 tests/data/dataset.fastq.gz -o barena-out-3-nochild// -k tests/data/dataset.raw  -d _data/inspect.txt  --taxon 3,0.040392464257142865,0.0009773699377982807,0.040722832400000006,0.03784813714285714,0.00295454,0.0391387114,0.0415030804
-./barena_linux -1 tests/data/dataset.fastq.gz -c barena-out-3-nochild//barena_class.fq -k tests/data/dataset.raw  -d _data/inspect.txt  --taxon 3,0.0254130644,0.0007024797944363484,0.025330999400000002,0.021971422857142854,0.0038531114285714286,0.0246102934,0.026531537400000003
-extract_kraken_reads.py -k tests/data/dataset.raw -t 3 -o barena-out-3-nochild//kraken.fq --fastq-output -s tests/data/dataset.fastq.gz,0.5588019799714287,0.03366583967616505,0.5454960394,6.094377708571429,0.026649682857142854,0.5261933424,0.6147177684
-kractor -i tests/data/dataset.fastq.gz -o barena-out-3-nochild//kractor.fq -k tests/data/dataset.raw -t 3,0.045054017257142864,0.0019178304132357832,0.045611735400000006,0.04265070857142857,0.005324111428571429,0.041398455400000006,0.046925149400000005
-kraken2 --threads 2 tests/data/dataset.fastq.gz | ./barena_linux -1 tests/data/dataset.fastq.gz -o barena-out-3-nochild//stream  -d _data/inspect.txt --taxon 3,0.26307608968571433,0.006079012101526934,0.26354010040000003,0.2160719942857143,0.060153682857142864,0.2562252454,0.27084916340000004
