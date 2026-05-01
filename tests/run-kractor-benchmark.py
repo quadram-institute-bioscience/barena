@@ -89,7 +89,6 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
     # Commands for hyperfine
     cmds = [
         # Barena modes
-        f'"{BARENA} {input_args} -k {kraken_input} -d {INSPECT} -t {taxon} -o {barena_outdir}/dir"',
         f'"{BARENA} {input_args} -k {kraken_input} -d {INSPECT} -t {taxon} -c {barena_outdir}/class.fq"',
         # KrakenTools
         f'"{MAMBA} extract_kraken_reads.py -k {kraken_input} -t {taxon} {krakentools_args} --fastq-output"',
@@ -101,7 +100,6 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
     
     # Tool names
     names = [
-        "barena_outdir",
         "barena_classified",
         "krakentools",
         "kractor",
@@ -112,6 +110,7 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
         "hyperfine",
         "--warmup 1",
         "-r 5",
+        f"--prepare 'rm {out_base}/kr_* || true'",
         f"--export-json {out_base}/results.json",
         f"--export-markdown {out_base}/results.md",
         f"--export-csv {out_base}/results.csv"
