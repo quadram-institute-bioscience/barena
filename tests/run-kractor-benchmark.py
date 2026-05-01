@@ -110,7 +110,7 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
         "hyperfine",
         "--warmup 1",
         "-r 5",
-        f"--prepare 'rm {out_base}/kr_* || true'",
+        f"--prepare 'rm {out_base}/kr* || true'",
         f"--export-json {out_base}/results.json",
         f"--export-markdown {out_base}/results.md",
         f"--export-csv {out_base}/results.csv"
