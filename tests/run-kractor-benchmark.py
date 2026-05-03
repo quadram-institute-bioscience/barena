@@ -9,7 +9,7 @@ DB = "dataset/db"
 INSPECT = os.path.join(DB, "inspect.txt")
 INSPECT_SKIP = os.path.join(DB, "inspect.txt.skip")
 BARENA = "./bin/barena"
-BASE_ENV = "base"
+BASE_ENV = "kraken"
 MAMBA = f"micromamba run -n {BASE_ENV}"
 UNAME = platform.system()
 THREADS = 8 # Adjust if needed
@@ -75,6 +75,7 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
     if is_paired:
         r1, r2 = fastq_input
         input_args = f"-1 {r1} -2 {r2}"
+        barena_output_args = f"-c {barena_outdir}/class_#.fq"
         krakentools_args = f"-s {r1} -s2 {r2} -o {out_base}/kt_R1.fq -o2 {out_base}/kt_R2.fq"
         kractor_args = f"-i {r1} -i {r2} -o {out_base}/kr_R1.fq -o {out_base}/kr_R2.fq"
         # For barena stream
@@ -82,6 +83,7 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
     else:
         r1 = fastq_input
         input_args = f"-1 {r1}"
+        barena_output_args = f"-c {barena_outdir}/class.fq"
         krakentools_args = f"-s {r1} -o {out_base}/kt.fq"
         kractor_args = f"-i {r1} -o {out_base}/kr.fq"
         kraken_cmd = f"{MAMBA} kraken2 --db {DB} --threads {THREADS} {r1}"
@@ -89,28 +91,25 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
     # Commands for hyperfine
     cmds = [
         # Barena modes
-        f'"{BARENA} {input_args} -k {kraken_input} -d {INSPECT} -t {taxon} -c {barena_outdir}/class.fq"',
+        f'"{BARENA} {input_args} -k {kraken_input} -d {INSPECT} -t {taxon} {barena_output_args}"',
         # KrakenTools
         f'"{MAMBA} extract_kraken_reads.py -k {kraken_input} -t {taxon} {krakentools_args} --fastq-output"',
         # Kractor
-        f'"{MAMBA} kractor -k {kraken_input} -t {taxon} -r {INSPECT_SKIP} {kractor_args}"',
-        # Kraken2 | Barena (streaming)
-        f'"{kraken_cmd} | {BARENA} {input_args} -k - -d {INSPECT} -t {taxon} -o {barena_outdir}/stream"'
-    ]
+        f'"{MAMBA} kractor -k {kraken_input} -t {taxon} -r {INSPECT_SKIP} {kractor_args}"'
+     ]
     
     # Tool names
     names = [
         "barena_classified",
         "krakentools",
-        "kractor",
-        "kraken2_plus_barena"
+        "kractor"
     ]
     
     hyperfine_cmd = [
         "hyperfine",
         "--warmup 1",
         "-r 5",
-        f"--prepare 'rm {out_base}/kr* || true'",
+        f"--prepare 'rm -f {out_base}/kr*.fq {out_base}/kt*.fq {barena_outdir}/class*.fq'",
         f"--export-json {out_base}/results.json",
         f"--export-markdown {out_base}/results.md",
         f"--export-csv {out_base}/results.csv"
