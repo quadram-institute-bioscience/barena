@@ -3,3 +3,8 @@ barena-out*/
 _data/
 .DS_Store
 tests/kractor-benchmark/
+*.pyc
+docs/_site/
+docs/.jekyll-cache/
+docs/Gemfile.lock
+docs/vendor/

@@ -1,0 +1,46 @@
+title: barena
+description: Filter FASTQ reads by taxon using Kraken2 classification output
+baseurl: "/barena"
+url: "https://quadram-institute-bioscience.github.io"
+
+remote_theme: just-the-docs/just-the-docs@v0.10.0
+
+# Appearance
+color_scheme: light
+search_enabled: true
+heading_anchors: true
+
+# Footer
+footer_content: >
+  <a href="https://github.com/quadram-institute-bioscience/barena">GitHub</a> &middot;
+  MIT License &middot; Andrea Telatin &amp; Quadram Institute Bioscience
+
+# Navigation
+nav_sort: order
+
+# Callouts
+callouts:
+  note:
+    title: Note
+    color: blue
+  tip:
+    title: Tip
+    color: green
+  warning:
+    title: Warning
+    color: yellow
+
+# Aux links in top-right
+aux_links:
+  "GitHub":
+    - "https://github.com/quadram-institute-bioscience/barena"
+
+aux_links_new_tab: true
+
+# Back to top
+back_to_top: true
+back_to_top_text: "Back to top"
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-github-metadata
