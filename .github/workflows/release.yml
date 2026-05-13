@@ -1,9 +1,7 @@
 name: Release Binaries
-
 on:
   release:
     types: [published]
-
 jobs:
   build:
     name: Build for ${{ matrix.target }}
@@ -18,34 +16,69 @@ jobs:
           - os: macos-latest
             target: macos-aarch64
             artifact: barena-macos-aarch64
-
+          - os: macos-13                  # last Intel macOS runner
+            target: macos-x86_64
+            artifact: barena-macos-x86_64
+          - os: ubuntu-latest
+            target: linux-aarch64
+            artifact: barena-linux-aarch64
+            arch: aarch64
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Nim
+      - name: Set up QEMU (Linux ARM64 only)
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build (Linux ARM64 via Docker)
+        if: matrix.arch == 'aarch64'
+        uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          install: |
+            apt-get update -q
+            apt-get install -y curl xz-utils zlib1g-dev gcc
+            curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
+            echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+          run: |
+            export PATH="$HOME/.nimble/bin:$PATH"
+            nimble install -d -y
+            nimble build -d:release
+            cp bin/barena barena-linux-aarch64
+
+      - name: Set up Nim (non-ARM64)
+        if: matrix.arch != 'aarch64'
         uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: stable
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache nimble packages
+        if: matrix.arch != 'aarch64'
         uses: actions/cache@v4
         with:
           path: ~/.nimble
           key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
           restore-keys: ${{ runner.os }}-nimble-
 
-      - name: Install zlib (Linux)
-        if: runner.os == 'Linux'
+      - name: Install zlib (Linux non-ARM64)
+        if: runner.os == 'Linux' && matrix.arch != 'aarch64'
         run: sudo apt-get install -y zlib1g-dev
 
-      - name: Install dependencies
+      - name: Install dependencies (non-ARM64)
+        if: matrix.arch != 'aarch64'
         run: nimble install -d -y
 
-      - name: Build release binary
+      - name: Build release binary (non-ARM64)
+        if: matrix.arch != 'aarch64'
         run: nimble build -d:release
 
-      - name: Prepare artifact
+      - name: Prepare artifact (non-ARM64)
+        if: matrix.arch != 'aarch64'
         run: cp bin/barena "${{ matrix.artifact }}"
 
       - name: Upload to GitHub Release
