@@ -250,6 +250,14 @@ proc kmerCount*(signature: KrakenSignature): int =
   for mate in signature.mates:
     result += mate.kmerCount()
 
+proc queriedKmerCount*(signature: KrakenSignature): int =
+  ## Count k-mers queried against the database for Kraken2 confidence scoring.
+  ## Ambiguous A runs are excluded; unmapped 0 runs are included.
+  for mate in signature.mates:
+    for run in mate:
+      if run.token.kind != ktkAmbiguous:
+        result += run.count
+
 proc mateCount*(signature: KrakenSignature): int {.inline.} =
   signature.mates.len
 
@@ -320,6 +328,118 @@ proc parentOf*(taxonomy: TaxonomyIndex, taxId: uint32, parent: var uint32): bool
 
 proc depthOf*(taxonomy: TaxonomyIndex, taxId: uint32): int =
   taxonomy.depth.getOrDefault(taxId, -1)
+
+proc validateConfidenceThreshold(threshold: float) =
+  if threshold != threshold or threshold < 0.0 or threshold > 1.0:
+    raiseSignatureError("confidence threshold must be in [0, 1]")
+
+proc addAncestorCount(
+    counts: var Table[uint32, int],
+    taxonomy: TaxonomyIndex,
+    taxId: uint32,
+    count: int
+  ) =
+  var current = taxId
+
+  while true:
+    counts[current] = counts.getOrDefault(current, 0) + count
+
+    var parent: uint32
+    if not taxonomy.parentOf(current, parent) or parent == current:
+      break
+
+    current = parent
+
+proc cladeKmerCounts(
+    signature: KrakenSignature,
+    taxonomy: TaxonomyIndex
+  ): Table[uint32, int] =
+  result = initTable[uint32, int]()
+
+  for mate in signature.mates:
+    for run in mate:
+      if run.token.kind == ktkTaxon:
+        result.addAncestorCount(taxonomy, run.token.taxId, run.count)
+
+proc confidenceScore*(
+    signature: KrakenSignature,
+    taxId: uint32,
+    taxonomy: TaxonomyIndex
+  ): float =
+  ## Return Kraken2's confidence score C/Q for a candidate taxid.
+  ##
+  ## C is the number of taxon k-mers assigned to the candidate's clade. Q is
+  ## all queried k-mers, including unmapped 0 runs and excluding ambiguous A
+  ## runs.
+  if taxId == 0'u32:
+    return 0.0
+
+  let q = signature.queriedKmerCount()
+  if q == 0:
+    return 0.0
+
+  let counts = signature.cladeKmerCounts(taxonomy)
+  counts.getOrDefault(taxId, 0).float / q.float
+
+proc deepestTaxId*(signature: KrakenSignature, taxonomy: TaxonomyIndex): uint32 =
+  ## Infer the deepest taxid present in the signature.
+  ##
+  ## Prefer passing Kraken2's original column-3 taxid to taxIdAtConfidence when
+  ## it is available; this helper is a fallback for signature-only callers.
+  var bestDepth = -1
+
+  for mate in signature.mates:
+    for run in mate:
+      if run.token.kind == ktkTaxon:
+        let depth = taxonomy.depthOf(run.token.taxId)
+        if result == 0'u32 or depth > bestDepth:
+          result = run.token.taxId
+          bestDepth = depth
+
+proc taxIdAtConfidence*(
+    signature: KrakenSignature,
+    originalTaxId: uint32,
+    taxonomy: TaxonomyIndex,
+    threshold: float
+  ): uint32 =
+  ## Return the deepest ancestor of originalTaxId whose Kraken2-style
+  ## confidence score meets threshold.
+  ##
+  ## If no ancestor, including the root, reaches threshold, returns 0
+  ## (unclassified). Kraken 0 runs contribute to Q but not C; A runs contribute
+  ## to neither.
+  validateConfidenceThreshold(threshold)
+
+  if originalTaxId == 0'u32:
+    return 0'u32
+
+  let q = signature.queriedKmerCount()
+  if q == 0:
+    return 0'u32
+
+  let counts = signature.cladeKmerCounts(taxonomy)
+  var current = originalTaxId
+
+  while true:
+    let score = counts.getOrDefault(current, 0).float / q.float
+    if score >= threshold:
+      return current
+
+    var parent: uint32
+    if not taxonomy.parentOf(current, parent) or parent == current:
+      return 0'u32
+
+    current = parent
+
+proc taxIdAtConfidence*(
+    signature: KrakenSignature,
+    taxonomy: TaxonomyIndex,
+    threshold: float
+  ): uint32 =
+  ## Infer the starting taxid from the signature, then apply taxIdAtConfidence.
+  ## Prefer the overload that accepts Kraken2's original column-3 taxid when it
+  ## is available.
+  signature.taxIdAtConfidence(signature.deepestTaxId(taxonomy), taxonomy, threshold)
 
 proc sameParent*(taxonomy: TaxonomyIndex, a, b: uint32): bool =
   ## Return true when both taxids have the same direct parent.

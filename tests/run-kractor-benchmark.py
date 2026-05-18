@@ -64,6 +64,7 @@ def verify_startup_tools():
     checks = [
         ("extract_kraken_reads.py", tool_cmd("extract_kraken_reads.py", "--help")),
         ("barena", f"{BARENA} --version"),
+        ("kraken2", tool_cmd("kraken2", "--version")),
         ("kractor", tool_cmd("kractor", "--version")),
     ]
     for label, cmd in checks:
@@ -167,6 +168,59 @@ def run_benchmark(bench_id, name, fastq_input, kraken_input, taxon, is_paired=Fa
     full_hyperfine = " ".join(hyperfine_cmd)
     run_cmd(full_hyperfine)
 
+def run_streaming_benchmark():
+    bench_id = 5
+    name = "ONT_Fastq_Kraken2_Stream"
+    taxon = 96241
+    out_base = f"tests/kractor-benchmark/{bench_id}_{UNAME}"
+    os.makedirs(out_base, exist_ok=True)
+
+    print(f"\n=== Running Benchmark {bench_id}: {name} ===")
+
+    barena_outdir = os.path.join(out_base, "barena_out")
+    os.makedirs(barena_outdir, exist_ok=True)
+
+    kraken_out = os.path.join(out_base, "kraken2.out")
+    kractor_out = os.path.join(out_base, "kractor.fq")
+    barena_out = os.path.join(barena_outdir, "class.fq")
+
+    kraken2_base = f"{tool_cmd('kraken2')} --db {DB} --threads {THREADS} {ZYMO_FQ}"
+    kraken2_kractor_cmd = (
+        f"{kraken2_base} --output {kraken_out} && "
+        f"{tool_cmd('kractor')} -k {kraken_out} -t {taxon} -r {INSPECT_SKIP} "
+        f"-i {ZYMO_FQ} -o {kractor_out}"
+    )
+    kraken2_barena_cmd = (
+        f"{kraken2_base} | "
+        f"{BARENA} -1 {ZYMO_FQ} -k - -d {INSPECT} -t {taxon} -c {barena_out}"
+    )
+
+    cmds = [
+        f'"{kraken2_kractor_cmd}"',
+        f'"{kraken2_barena_cmd}"',
+    ]
+
+    names = [
+        "kraken2_plus_kractor",
+        "kraken2_pipe_barena",
+    ]
+
+    hyperfine_cmd = [
+        "hyperfine",
+        "--warmup 1",
+        "-r 5",
+        f"--prepare 'rm -f {kraken_out} {kractor_out} {barena_out}'",
+        f"--export-json {out_base}/results.json",
+        f"--export-markdown {out_base}/results.md",
+        f"--export-csv {out_base}/results.csv"
+    ]
+
+    for n, c in zip(names, cmds):
+        hyperfine_cmd.append(f'-n "{n}" {c}')
+
+    full_hyperfine = " ".join(hyperfine_cmd)
+    run_cmd(full_hyperfine)
+
 def main():
     try:
         verify_startup_tools()
@@ -189,6 +243,9 @@ def main():
         
         # Benchmark 4: Paired, .fastq.gz, taxid 2
         run_benchmark(4, "Illumina_Paired_FastqGz", (SRR_R1_GZ, SRR_R2_GZ), PAIRED_KRAKEN, 2, is_paired=True)
+
+        # Benchmark 5: ONT .fastq, end-to-end Kraken2 plus extraction
+        run_streaming_benchmark()
         
     except Exception as e:
         print(f"Error during benchmark: {e}")
