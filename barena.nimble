@@ -1,5 +1,5 @@
 # Package
-version       = "0.2.1"
+version       = "0.3.0"
 author        = "Andrea Telatin"
 description   = "Filter FASTQ reads using Kraken2 classification"
 license       = "MIT"
