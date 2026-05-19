@@ -1,0 +1,43 @@
+  8.33	1	1	U	0	unclassified
+ 91.67	11	0	R	1	root
+ 91.67	11	0	R1	131567	  cellular organisms
+ 91.67	11	0	D	2	    Bacteria
+ 58.33	7	0	D1	1783272	      Terrabacteria group
+ 41.67	5	0	P	1239	        Bacillota
+ 25.00	3	0	C	91061	          Bacilli
+ 25.00	3	0	O	1385	            Bacillales
+  8.33	1	0	F	90964	              Staphylococcaceae
+  8.33	1	1	G	1279	                Staphylococcus
+  8.33	1	0	F	186817	              Bacillaceae
+  8.33	1	1	G	1386	                Bacillus
+  8.33	1	0	F	186820	              Listeriaceae
+  8.33	1	0	G	1637	                Listeria
+  8.33	1	1	S	1639	                  Listeria monocytogenes
+ 16.67	2	0	C	186801	          Clostridia
+ 16.67	2	0	O	3082720	            Peptostreptococcales
+ 16.67	2	0	F	186804	              Peptostreptococcaceae
+ 16.67	2	0	G	1870884	                Clostridioides
+ 16.67	2	2	S	1496	                  Clostridioides difficile
+ 16.67	2	0	P	201174	        Actinomycetota
+ 16.67	2	0	C	1760	          Actinomycetes
+  8.33	1	0	O	85006	            Micrococcales
+  8.33	1	0	F	2805591	              Tropherymataceae
+  8.33	1	0	G	2038	                Tropheryma
+  8.33	1	1	S	2039	                  Tropheryma whipplei
+  8.33	1	0	O	85007	            Mycobacteriales
+  8.33	1	0	F	1762	              Mycobacteriaceae
+  8.33	1	0	G	1763	                Mycobacterium
+  8.33	1	1	G1	77643	                  Mycobacterium tuberculosis complex
+ 25.00	3	0	P	1224	      Pseudomonadota
+ 25.00	3	0	C	1236	        Gammaproteobacteria
+ 16.67	2	0	O	72274	          Pseudomonadales
+ 16.67	2	0	F	135621	            Pseudomonadaceae
+ 16.67	2	2	G	286	              Pseudomonas
+  8.33	1	0	O	91347	          Enterobacterales
+  8.33	1	1	F	543	            Enterobacteriaceae
+  8.33	1	0	P	29547	      Campylobacterota
+  8.33	1	0	C	3031852	        Epsilonproteobacteria
+  8.33	1	0	O	213849	          Campylobacterales
+  8.33	1	0	F	72293	            Helicobacteraceae
+  8.33	1	0	G	209	              Helicobacter
+  8.33	1	1	S	210	                Helicobacter pylori
