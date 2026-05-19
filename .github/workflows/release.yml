@@ -2,6 +2,13 @@ name: Release Binaries
 on:
   release:
     types: [published]
+
+permissions:
+  contents: write
+
+env:
+  NIM_VERSION: 2.2.10
+
 jobs:
   build:
     name: Build for ${{ matrix.target }}
@@ -10,75 +17,62 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target: linux-x86_64
             artifact: barena-linux-x86_64
-          - os: macos-latest
-            target: macos-aarch64
-            artifact: barena-macos-aarch64
-          - os: macos-13                  # last Intel macOS runner
-            target: macos-x86_64
-            artifact: barena-macos-x86_64
-          - os: ubuntu-latest
+            nim_platform: linux_x64
+          - os: ubuntu-22.04-arm
             target: linux-aarch64
             artifact: barena-linux-aarch64
-            arch: aarch64
+            nim_platform: linux_arm64
+          - os: macos-15
+            target: macos-aarch64
+            artifact: barena-macos-aarch64
+            nim_platform: macosx_arm64
+          - os: macos-15-intel
+            target: macos-x86_64
+            artifact: barena-macos-x86_64
+            nim_platform: macosx_x64
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU (Linux ARM64 only)
-        if: matrix.arch == 'aarch64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: Build (Linux ARM64 via Docker)
-        if: matrix.arch == 'aarch64'
-        uses: uraimo/run-on-arch-action@v2
-        with:
-          arch: aarch64
-          distro: ubuntu22.04
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          install: |
-            apt-get update -q
-            apt-get install -y curl xz-utils zlib1g-dev gcc
-            curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- -y
-            echo "$HOME/.nimble/bin" >> $GITHUB_PATH
-          run: |
-            export PATH="$HOME/.nimble/bin:$PATH"
-            nimble install -d -y
-            nimble build -d:release
-            cp bin/barena barena-linux-aarch64
-
-      - name: Set up Nim (non-ARM64)
-        if: matrix.arch != 'aarch64'
-        uses: jiro4989/setup-nim-action@v2
-        with:
-          nim-version: stable
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Nim
+        shell: bash
+        run: |
+          archive="nim-${NIM_VERSION}-${{ matrix.nim_platform }}.tar.xz"
+          curl --fail --location --show-error --silent \
+            "https://nim-lang.org/download/${archive}" \
+            --output "${RUNNER_TEMP}/${archive}"
+          tar -xf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}"
+          nim_dir="$(find "${RUNNER_TEMP}" -maxdepth 1 -type d -name "nim-${NIM_VERSION}*" -print -quit)"
+          if [[ -z "${nim_dir}" ]]; then
+            echo "Could not find extracted Nim ${NIM_VERSION} directory" >&2
+            exit 1
+          fi
+          echo "${nim_dir}/bin" >> "${GITHUB_PATH}"
+          "${nim_dir}/bin/nim" --version
+          "${nim_dir}/bin/nimble" --version
 
       - name: Cache nimble packages
-        if: matrix.arch != 'aarch64'
         uses: actions/cache@v4
         with:
           path: ~/.nimble
-          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
-          restore-keys: ${{ runner.os }}-nimble-
+          key: ${{ matrix.target }}-nimble-${{ hashFiles('*.nimble') }}
+          restore-keys: ${{ matrix.target }}-nimble-
 
-      - name: Install zlib (Linux non-ARM64)
-        if: runner.os == 'Linux' && matrix.arch != 'aarch64'
-        run: sudo apt-get install -y zlib1g-dev
+      - name: Install zlib (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zlib1g-dev
 
-      - name: Install dependencies (non-ARM64)
-        if: matrix.arch != 'aarch64'
+      - name: Install dependencies
         run: nimble install -d -y
 
-      - name: Build release binary (non-ARM64)
-        if: matrix.arch != 'aarch64'
+      - name: Build release binary
         run: nimble build -d:release
 
-      - name: Prepare artifact (non-ARM64)
-        if: matrix.arch != 'aarch64'
+      - name: Prepare artifact
         run: cp bin/barena "${{ matrix.artifact }}"
 
       - name: Upload to GitHub Release
