@@ -16,6 +16,10 @@ const
   KrakenRaw  = Data / "kraken_output.raw"
   R1         = Data / "A01_R1.fq.gz"
   R2         = Data / "A01_R2.fq.gz"
+  ConfidenceData = Data / "confidence"
+  ConfidenceReport = ConfidenceData / "small_00_nomin.tsv"
+  ConfidenceReportWithMinimizers = ConfidenceData / "small_00.tsv"
+  ConfidenceBaseline = ConfidenceData / "small_00.kraw"
 
 let barena =
   if fileExists("./barena"): "./barena"
@@ -43,6 +47,17 @@ proc freshDir(path: string) =
     removeDir(path)
   createDir(path)
 
+proc readKrakenTaxIdsByName(path: string): Table[string, uint32] =
+  result = initTable[string, uint32]()
+
+  for line in lines(path):
+    if line.len == 0:
+      continue
+
+    var taxId: uint32
+    discard parseKrakenLine(line, taxId)
+    result[parseKrakenReadName(line)] = taxId
+
 # ---------------------------------------------------------------------------
 # Taxonomy tests
 # ---------------------------------------------------------------------------
@@ -52,6 +67,19 @@ suite "taxonomy parser":
   test "parses inspect-db without error":
     let tree = parseInspectDb(InspectDb)
     check tree.len > 0
+
+  test "parses report rows with minimizer columns":
+    var nStandard, nMinimizers: int
+    let standard = parseInspectDb(ConfidenceReport, nStandard)
+    let minimizers = parseInspectDb(ConfidenceReportWithMinimizers, nMinimizers)
+    let standardRootDesc = getDescendants(standard, @[1'u32])
+    let minimizerRootDesc = getDescendants(minimizers, @[1'u32])
+
+    check nMinimizers == nStandard
+    check minimizerRootDesc == standardRootDesc
+    check 131567'u32 in minimizers[1'u32]
+    check 2'u32 in minimizers[131567'u32]
+    check 1279'u32 in minimizerRootDesc
 
   test "45409 (Lachnospiraceae) is a direct child of 45405 (Lachnospirales)":
     let tree = parseInspectDb(InspectDb)
@@ -181,6 +209,43 @@ suite "kraken signature parser and comparison":
     check sig.queriedKmerCount() == 0
     check confidenceScore(sig, 562'u32, taxonomy) == 0.0
     check taxIdAtConfidence(sig, 562'u32, taxonomy, 0.0) == 0'u32
+
+  test "confidence scoring reproduces Kraken2 threshold fixtures":
+    let taxonomy = buildTaxonomyIndex(parseInspectDb(ConfidenceReport))
+    let originalTaxIds = readKrakenTaxIdsByName(ConfidenceBaseline)
+    let fixtures = [
+      (path: ConfidenceData / "small_00.kraw", threshold: 0.0),
+      (path: ConfidenceData / "small_01.kraw", threshold: 0.1),
+      (path: ConfidenceData / "small_025.kraw", threshold: 0.25),
+      (path: ConfidenceData / "small_05.kraw", threshold: 0.5),
+      (path: ConfidenceData / "small_075.kraw", threshold: 0.75)
+    ]
+
+    check originalTaxIds.len == 12
+
+    for fixture in fixtures:
+      for line in lines(fixture.path):
+        if line.len == 0:
+          continue
+
+        let readName = parseKrakenReadName(line)
+        var expectedTaxId: uint32
+        let expectedClassified = parseKrakenLine(line, expectedTaxId)
+
+        checkpoint fixture.path & " " & readName & " confidence=" & $fixture.threshold
+        check readName in originalTaxIds
+
+        if readName in originalTaxIds:
+          let signature = parseKrakenLineSignature(line)
+          let actualTaxId = taxIdAtConfidence(
+            signature,
+            originalTaxIds[readName],
+            taxonomy,
+            fixture.threshold
+          )
+
+          check actualTaxId == expectedTaxId
+          check (actualTaxId != 0'u32) == expectedClassified
 
 # ---------------------------------------------------------------------------
 # Integration / filtering tests (requires compiled binary)
