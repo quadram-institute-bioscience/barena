@@ -4,6 +4,25 @@ import std/[tables, sets, strutils]
 
 type TaxTree* = Table[uint32, seq[uint32]]
 
+proc isUIntField(s: string): bool =
+  let stripped = s.strip()
+  if stripped.len == 0:
+    return false
+  for c in stripped:
+    if c < '0' or c > '9':
+      return false
+  true
+
+proc reportColumnOffset(parts: seq[string]): int =
+  ## Kraken2 reports normally have:
+  ##   pct, clade reads, direct reads, rank, taxid, name
+  ## With --report-minimizer-data, two numeric minimizer columns are inserted
+  ## before rank, shifting rank/taxid/name by two columns.
+  if parts.len >= 8 and parts[3].isUIntField() and parts[4].isUIntField():
+    2
+  else:
+    0
+
 proc parseInspectDb*(path: string, nodeCount: var int): TaxTree =
   ## Build a parent→children map from a kraken2-inspect output file.
   ## Lines starting with '#' are skipped. Depth is inferred from leading spaces
@@ -17,17 +36,22 @@ proc parseInspectDb*(path: string, nodeCount: var int): TaxTree =
     if line.len == 0 or line[0] == '#':
       continue
 
-    # Fields: pct | clade_reads | direct_reads | rank | taxid | name
+    # Fields: pct | clade_reads | direct_reads | [minimizers | distinct] |
+    #         rank | taxid | name
     let parts = line.split('\t')
     if parts.len < 6:
       continue
 
-    let taxId = parseUInt(parts[4].strip()).uint32
+    let offset = reportColumnOffset(parts)
+    if parts.len < 6 + offset:
+      continue
+
+    let taxId = parseUInt(parts[4 + offset].strip()).uint32
     inc nodeCount
 
     # Indentation of name field encodes depth (2 spaces per level)
     var depth = 0
-    for c in parts[5]:
+    for c in parts[5 + offset]:
       if c == ' ': inc depth
       else: break
     depth = depth div 2
